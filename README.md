@@ -13,3 +13,18 @@ Các đặc tả gốc hiện vẫn được giữ tại thư mục gốc:
 - `openapi.yaml`
 - `MY_TASCO_FULL_API_SWAGGER.docx`
 - `message.md`
+
+## Web UI (`apps/web`)
+
+SPA "My Tasco AI Workspace" (React 19 + Vite + Tailwind) chạy độc lập, không cần
+backend: dữ liệu lấy từ fixtures tĩnh (`src/data/fixtures.json`) sinh từ `data.md`,
+phân quyền ACL/RBAC thực thi phía client.
+
+```bash
+cd apps/web
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit + permission tests
+npm run build      # bản dist tĩnh
+npm run fixtures   # sinh lại fixtures khi data.md thay đổi
+```
