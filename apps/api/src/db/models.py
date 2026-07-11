@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import HALFVEC
 from sqlalchemy import DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -32,7 +32,7 @@ class Document(Base):
 class Chunk(Base):
     """Indexed document chunk with embedding vector.
 
-    # TODO: wire dimension to model registry; add evidence/ACL metadata.
+    # TODO: move vectors into versioned embedding_refs and add evidence/ACL metadata.
     """
 
     __tablename__ = "chunks"
@@ -41,8 +41,8 @@ class Chunk(Base):
     document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     section: Mapped[str] = mapped_column(String(256), nullable=False, default="")
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    # TODO: confirm embedding dimension against production model registry.
-    embedding = mapped_column(Vector(1536), nullable=True)
+    # AIE1 Phase 2 baseline: Qwen3-Embedding-0.6B, 512-d normalized projection.
+    embedding = mapped_column(HALFVEC(512), nullable=True)
 
 
 class AuditEvent(Base):
