@@ -55,10 +55,10 @@ def _rows_by_header(worksheet: Any, expected: tuple[str, ...]) -> Iterable[tuple
         raise ValueError(f"Sheet {worksheet.title!r} is missing required header {expected!r}")
 
     for row in worksheet.iter_rows(min_row=header_row + 1, max_col=len(expected)):
-        values = [cell.value for cell in row]
-        if not any(value is not None and _clean(value) for value in values):
+        row_values = [cell.value for cell in row]
+        if not any(value is not None and _clean(value) for value in row_values):
             continue
-        yield row[0].row, dict(zip(expected, values, strict=True))
+        yield row[0].row, dict(zip(expected, row_values, strict=True))
 
 
 def _metadata_index(worksheet: Any) -> tuple[dict[str, tuple[int, dict[str, Any]]], set[str]]:

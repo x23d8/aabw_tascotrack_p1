@@ -16,7 +16,7 @@ class EgressSegment:
 
 class EgressSpy:
     def __init__(self):
-        self.calls = ()
+        self.calls: tuple[tuple[EgressSegment, ...], ...] = ()
 
     def __call__(self, segments):
         self.calls += (tuple(segments),)

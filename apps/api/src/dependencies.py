@@ -4,12 +4,14 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request
+from jwt import PyJWTError
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.src.config import Settings, get_settings
 from apps.api.src.db.session import get_db_session
 from apps.api.src.schemas.common import ErrorCode
+from modules.identity.src.subject import SubjectContext, resolve_subject
 
 # Redis client is process-scoped and initialized in app lifespan.
 _redis: Redis | None = None
@@ -47,12 +49,22 @@ def get_request_id(request: Request) -> str:
 async def get_current_subject(
     authorization: Annotated[str | None, Header()] = None,
     settings: Settings = Depends(get_settings),
-) -> dict:
+) -> SubjectContext:
     """Resolve the authenticated subject from JWT.
 
-    # TODO: validate Bearer JWT with settings.JWT_SECRET and map claims to SubjectContext.
     """
-    raise NotImplementedError("get_current_subject")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    try:
+        return resolve_subject(
+            authorization[7:].strip(),
+            secret=settings.JWT_SECRET,
+            algorithm=settings.JWT_ALGORITHM,
+            issuer=settings.JWT_ISSUER,
+            audience=settings.JWT_AUDIENCE,
+        )
+    except (PyJWTError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired Bearer token") from exc
 
 
 async def require_idempotency_key(
@@ -70,5 +82,5 @@ async def require_idempotency_key(
                 "requestId": request_id,
             },
         )
-    # TODO: check Redis for prior response under this key and return cached result.
+    # Response replay and payload-conflict enforcement are handled by IdempotencyMiddleware.
     return idempotency_key

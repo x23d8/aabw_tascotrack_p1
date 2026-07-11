@@ -42,12 +42,15 @@ class StateMachineTest(unittest.TestCase):
         with self.assertRaises(InvalidTransition):
             transition(RunState.new(), RunStatus.COMPLETED)
 
-    def test_rejects_simple_rag_at_routed(self):
+    def test_accepts_simple_rag_with_bounded_budget(self):
         state = transition(RunState.new(), RunStatus.SENSITIVITY_CHECKED)
         state = transition(state, RunStatus.AUTHORIZED)
 
-        with self.assertRaises(InvalidTransition):
-            transition(state, RunStatus.ROUTED, route=ExecutionRoute.SIMPLE_RAG)
+        routed = transition(state, RunStatus.ROUTED, route=ExecutionRoute.SIMPLE_RAG)
+
+        self.assertIs(routed.route, ExecutionRoute.SIMPLE_RAG)
+        self.assertEqual(routed.budget.model_calls, 1)
+        self.assertEqual(routed.budget.retrieval_calls, 1)
 
     def test_deterministic_budget_has_zero_allowances_and_three_second_deadline(self):
         budget = RunBudget.deterministic()

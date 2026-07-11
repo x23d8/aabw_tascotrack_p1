@@ -15,9 +15,19 @@ class RunStatus(Enum):
     AUTHORIZED = auto()
     ROUTED = auto()
     DETERMINISTIC = auto()
+    RETRIEVING = auto()
+    PLANNING = auto()
+    EXECUTING_READ_TOOLS = auto()
+    EVALUATING_EVIDENCE = auto()
+    GENERATING = auto()
     VALIDATING_OUTPUT = auto()
+    WAITING_CONFIRMATION = auto()
+    EXECUTING_ACTION = auto()
     COMPLETED = auto()
+    INSUFFICIENT = auto()
     DENIED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
 
 
 @dataclass(frozen=True)
@@ -30,6 +40,18 @@ class RunBudget:
     @classmethod
     def deterministic(cls):
         return cls(deadline_seconds=3, model_calls=0, tool_calls=0, retrieval_calls=0)
+
+    @classmethod
+    def simple_rag(cls):
+        return cls(deadline_seconds=45, model_calls=1, tool_calls=0, retrieval_calls=1)
+
+    @classmethod
+    def agentic_read(cls):
+        return cls(deadline_seconds=90, model_calls=3, tool_calls=4, retrieval_calls=2)
+
+    @classmethod
+    def confirmed_action(cls):
+        return cls(deadline_seconds=90, model_calls=2, tool_calls=5, retrieval_calls=2)
 
     def restrict(self, **limits):
         names = ("deadline_seconds", "model_calls", "tool_calls", "retrieval_calls")

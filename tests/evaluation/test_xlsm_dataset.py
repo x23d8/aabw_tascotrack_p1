@@ -5,11 +5,7 @@ from unittest import mock
 from modules.governance.src.evaluation.xlsm_dataset import _table, load_public_evaluation_dataset
 
 
-WORKBOOK = next(
-    parent / "ai_workspace_dataset_vietnamese_participants (1).xlsm"
-    for parent in Path(__file__).resolve().parents
-    if (parent / "ai_workspace_dataset_vietnamese_participants (1).xlsm").is_file()
-)
+WORKBOOK = Path(__file__).resolve().parents[2] / "package" / "ai_workspace_dataset_vietnamese_participants.xlsm"
 
 
 class XlsmDatasetTest(unittest.TestCase):

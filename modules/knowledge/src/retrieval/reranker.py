@@ -86,7 +86,7 @@ class Qwen3Reranker:
             **revision_args,
         )
         model.eval()
-        model.to(device)
+        model.to(device)  # type: ignore[arg-type]
 
         prefix = (
             "<|im_start|>system\n"
