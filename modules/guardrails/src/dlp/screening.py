@@ -20,6 +20,24 @@ _COOKIE_JSON_KEY = "|".join(_json_key_pattern(key) for key in ("cookie", "cookie
 _JSON_MAX_DEPTH = 3
 _MALFORMED_STRUCTURED_DATA = "MALFORMED_STRUCTURED_DATA"
 _STRUCTURED_DATA_LIMIT = "STRUCTURED_DATA_LIMIT"
+_DUPLICATE_STRUCTURED_KEY = "DUPLICATE_STRUCTURED_KEY"
+
+
+class _DuplicateStructuredKey(Exception):
+    pass
+
+
+def _reject_duplicate_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateStructuredKey
+        result[key] = value
+    return result
+
+
+def _json_loads(text: str):
+    return json.loads(text, object_pairs_hook=_reject_duplicate_keys)
 
 
 _PATTERNS = (
@@ -115,7 +133,9 @@ def _json_codes(value) -> tuple[str, ...]:
                     add(_STRUCTURED_DATA_LIMIT)
                 else:
                     try:
-                        walk(json.loads(stripped), depth + 1)
+                        walk(_json_loads(stripped), depth + 1)
+                    except _DuplicateStructuredKey:
+                        add(_DUPLICATE_STRUCTURED_KEY)
                     except (json.JSONDecodeError, RecursionError):
                         add(_MALFORMED_STRUCTURED_DATA)
 
@@ -135,7 +155,9 @@ def _decoded_json_codes(text: str) -> tuple[str, ...]:
     if structured is None:
         return ()
     try:
-        return _json_codes(json.loads(structured))
+        return _json_codes(_json_loads(structured))
+    except _DuplicateStructuredKey:
+        return (_DUPLICATE_STRUCTURED_KEY,)
     except (json.JSONDecodeError, RecursionError):
         return (_MALFORMED_STRUCTURED_DATA,)
 

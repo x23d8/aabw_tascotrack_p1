@@ -5,6 +5,7 @@ from modules.guardrails.src.dlp.screening import redact, sensitivity_gate
 
 MALFORMED_STRUCTURED_DATA = "MALFORMED_STRUCTURED_DATA"
 STRUCTURED_DATA_LIMIT = "STRUCTURED_DATA_LIMIT"
+DUPLICATE_STRUCTURED_KEY = "DUPLICATE_STRUCTURED_KEY"
 
 
 class ScreeningTest(unittest.TestCase):
@@ -305,6 +306,25 @@ class ScreeningTest(unittest.TestCase):
         self.assertEqual(verdict.codes, ("BEARER_TOKEN",))
         self.assertEqual(result.codes, ("BEARER_TOKEN",))
         self.assertEqual(result.sanitized_text, "[REDACTED:BEARER_TOKEN]")
+
+    def test_duplicate_json_keys_deny_and_redact_without_raw_input(self):
+        cases = (
+            r'{"note":"Bearer abcdef123","note":"safe"}',
+            r'{"outer":{"note":"Bearer abcdef123","note":"safe"}}',
+            r'{"outer":"{\"note\":\"Bearer\\u0020abcdef123\",\"note\":\"safe\"}"}',
+        )
+        for text in cases:
+            with self.subTest(text=text):
+                verdict = sensitivity_gate(text)
+                result = redact(text)
+
+                self.assertFalse(verdict.egress_allowed)
+                self.assertEqual(verdict.codes, (DUPLICATE_STRUCTURED_KEY,))
+                self.assertEqual(result.codes, (DUPLICATE_STRUCTURED_KEY,))
+                self.assertNotIn("Bearer", result.sanitized_text)
+                self.assertNotIn("abcdef123", result.sanitized_text)
+                self.assertNotIn("safe", result.sanitized_text)
+                self.assertEqual(result.sanitized_text, f"[REDACTED:{DUPLICATE_STRUCTURED_KEY}]")
 
     def test_root_json_string_decoded_bearer_is_denied_and_redacted(self):
         text = '"Authorization: Bearer\\u0020abcdef123456"'

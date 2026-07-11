@@ -145,6 +145,27 @@ class EgressTest(unittest.TestCase):
         self.assertEqual(decision.code, "SENSITIVITY_DENIED")
         self.assertEqual(spy.calls, ())
 
+    def test_duplicate_json_key_query_denies_before_send(self):
+        inspector = self.inspector()
+        spy = inspector.EgressSpy()
+
+        decision = inspector.dispatch_if_allowed(r'{"note":"Bearer abcdef123","note":"safe"}', (self.segment(),), spy)
+
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.code, "SENSITIVITY_DENIED")
+        self.assertEqual(spy.calls, ())
+
+    def test_nested_duplicate_json_key_segment_denies_before_send(self):
+        inspector = self.inspector()
+        spy = inspector.EgressSpy()
+        segments = (self.segment(origin="SANITIZED_QUERY", content=r'{"outer":"{\"note\":\"Bearer\\u0020abcdef123\",\"note\":\"safe\"}"}'),)
+
+        decision = inspector.dispatch_if_allowed("Show today schedule", segments, spy)
+
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.code, "SENSITIVITY_DENIED")
+        self.assertEqual(spy.calls, ())
+
     def test_root_json_string_bearer_query_denies_before_send(self):
         inspector = self.inspector()
         spy = inspector.EgressSpy()
