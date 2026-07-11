@@ -4,6 +4,7 @@ import unittest
 from modules.guardrails.src.dlp.screening import redact, sensitivity_gate
 
 MALFORMED_STRUCTURED_DATA = "MALFORMED_STRUCTURED_DATA"
+STRUCTURED_DATA_LIMIT = "STRUCTURED_DATA_LIMIT"
 
 
 class ScreeningTest(unittest.TestCase):
@@ -351,16 +352,32 @@ class ScreeningTest(unittest.TestCase):
                 self.assertNotIn(key, result.sanitized_text)
                 self.assertEqual(result.sanitized_text, f"[REDACTED:{MALFORMED_STRUCTURED_DATA}]")
 
-    def test_json_depth_limit_catches_supported_depth_and_returns_for_deeper_payload(self):
+    def test_json_depth_limit_catches_supported_depth_and_fails_closed_for_deeper_payload(self):
         supported = '{"a":{"b":{"c":"password=hunter2"}}}'
         too_deep = "[" * 200 + '"password=hunter2"' + "]" * 200
 
         supported_result = redact(supported)
-        deep_result = sensitivity_gate(too_deep)
+        verdict = sensitivity_gate(too_deep)
+        deep_result = redact(too_deep)
 
         self.assertEqual(supported_result.codes, ("AUTH_TOKEN",))
         self.assertEqual(supported_result.sanitized_text, "[REDACTED:AUTH_TOKEN]")
-        self.assertIsInstance(deep_result.egress_allowed, bool)
+        self.assertFalse(verdict.egress_allowed)
+        self.assertIn(STRUCTURED_DATA_LIMIT, verdict.codes)
+        self.assertIn(STRUCTURED_DATA_LIMIT, deep_result.codes)
+        self.assertNotIn("hunter2", deep_result.sanitized_text)
+
+    def test_deep_escaped_cookie_json_fails_closed_without_raw_input(self):
+        text = r'{"a":{"b":{"c":{"d":"{\"cookie\":\"session=abc123\"}"}}}}'
+
+        verdict = sensitivity_gate(text)
+        result = redact(text)
+
+        self.assertFalse(verdict.egress_allowed)
+        self.assertIn(STRUCTURED_DATA_LIMIT, verdict.codes)
+        self.assertIn(STRUCTURED_DATA_LIMIT, result.codes)
+        self.assertNotIn("session=abc123", result.sanitized_text)
+        self.assertNotIn("cookie", result.sanitized_text)
 
     def test_truncated_net_salary_json_is_denied_and_redacted(self):
         text = r'{"net_salary":25000000'

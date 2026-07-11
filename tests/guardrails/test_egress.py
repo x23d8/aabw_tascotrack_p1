@@ -135,6 +135,50 @@ class EgressTest(unittest.TestCase):
         self.assertEqual(decision.code, "SENSITIVITY_DENIED")
         self.assertEqual(spy.calls, ())
 
+    def test_property_backed_segment_is_materialized_once_before_screening_and_send(self):
+        inspector = self.inspector()
+        spy = inspector.EgressSpy()
+
+        class FlippingSegment:
+            origin = "SANITIZED_QUERY"
+            reference = "policy:S11"
+
+            def __init__(self):
+                self.reads = 0
+
+            @property
+            def content(self):
+                self.reads += 1
+                return "safe content" if self.reads == 1 else "Cookie: session=abc123"
+
+        decision = inspector.dispatch_if_allowed("Show today schedule", (FlippingSegment(),), spy)
+
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.code, "ALLOWED")
+        self.assertEqual(spy.calls, ((inspector.EgressSegment("SANITIZED_QUERY", "safe content", "policy:S11"),),))
+
+    def test_non_string_or_malformed_segment_denies_before_send(self):
+        inspector = self.inspector()
+
+        class NonStringContent:
+            origin = "SANITIZED_QUERY"
+            content = 123
+            reference = "policy:S11"
+
+        class MissingContent:
+            origin = "SANITIZED_QUERY"
+            reference = "policy:S11"
+
+        for segment in (NonStringContent(), MissingContent()):
+            with self.subTest(segment=type(segment).__name__):
+                spy = inspector.EgressSpy()
+
+                decision = inspector.dispatch_if_allowed("Show today schedule", (segment,), spy)
+
+                self.assertFalse(decision.allowed)
+                self.assertEqual(decision.code, "UNATTRIBUTED_SEGMENT")
+                self.assertEqual(spy.calls, ())
+
 
 if __name__ == "__main__":
     unittest.main()

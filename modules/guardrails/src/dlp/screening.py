@@ -19,6 +19,7 @@ _OTP_JSON_KEY = _json_key_pattern("otpTransactionId")
 _COOKIE_JSON_KEY = "|".join(_json_key_pattern(key) for key in ("cookie", "cookies", "session", "sessionId", "session_id"))
 _JSON_MAX_DEPTH = 3
 _MALFORMED_STRUCTURED_DATA = "MALFORMED_STRUCTURED_DATA"
+_STRUCTURED_DATA_LIMIT = "STRUCTURED_DATA_LIMIT"
 
 
 _PATTERNS = (
@@ -85,27 +86,35 @@ def _json_codes(value) -> tuple[str, ...]:
             codes.append(code)
 
     def walk(item, depth: int = 0) -> None:
-        # ponytail: decoded JSON DLP descends three levels; raise _JSON_MAX_DEPTH if requirements need deeper inspection.
+        # ponytail: decoded JSON DLP descends three levels; deeper structured subtrees fail closed until streaming/iterative scanning replaces recursion.
         if depth > _JSON_MAX_DEPTH:
+            add(_STRUCTURED_DATA_LIMIT)
             return
         if isinstance(item, dict):
+            if depth == _JSON_MAX_DEPTH and item:
+                add(_STRUCTURED_DATA_LIMIT)
             for key, value in item.items():
                 code = _json_key_code(key)
                 if code:
                     add(code)
                 walk(value, depth + 1)
         elif isinstance(item, list):
+            if depth == _JSON_MAX_DEPTH and item:
+                add(_STRUCTURED_DATA_LIMIT)
             for value in item:
                 walk(value, depth + 1)
         elif isinstance(item, str):
             for code in _semantic_codes(item):
                 add(code)
             stripped = item.lstrip()
-            if depth < _JSON_MAX_DEPTH and stripped[:1] in "[{":
-                try:
-                    walk(json.loads(item), depth + 1)
-                except (json.JSONDecodeError, RecursionError):
-                    add(_MALFORMED_STRUCTURED_DATA)
+            if stripped[:1] in "[{":
+                if depth >= _JSON_MAX_DEPTH:
+                    add(_STRUCTURED_DATA_LIMIT)
+                else:
+                    try:
+                        walk(json.loads(item), depth + 1)
+                    except (json.JSONDecodeError, RecursionError):
+                        add(_MALFORMED_STRUCTURED_DATA)
 
     walk(value)
     return tuple(codes)

@@ -22,19 +22,36 @@ class EgressSpy:
         self.calls += (tuple(segments),)
 
 
+def _materialized_segments(segments):
+    snapshot = []
+    for segment in segments:
+        origin, content, reference = segment.origin, segment.content, segment.reference
+        if not all(isinstance(value, str) for value in (origin, content, reference)):
+            raise TypeError("egress segment fields must be strings")
+        snapshot.append(EgressSegment(str(origin), str(content), str(reference)))
+    return tuple(snapshot)
+
+
 def inspect_egress(segments):
-    if not segments:
+    try:
+        snapshot = _materialized_segments(segments)
+    except (AttributeError, TypeError):
         return EgressDecision(False, "UNATTRIBUTED_SEGMENT")
-    if any(segment.origin not in _ALLOWED_ORIGINS or not segment.reference for segment in segments):
+    if not snapshot:
+        return EgressDecision(False, "UNATTRIBUTED_SEGMENT")
+    if any(segment.origin not in _ALLOWED_ORIGINS or not segment.reference for segment in snapshot):
         return EgressDecision(False, "UNATTRIBUTED_SEGMENT")
     return EgressDecision(True, "ALLOWED")
 
 
 def dispatch_if_allowed(user_query, segments, send):
-    snapshot = tuple(segments)
+    try:
+        snapshot = _materialized_segments(segments)
+    except (AttributeError, TypeError):
+        return EgressDecision(False, "UNATTRIBUTED_SEGMENT")
     if not sensitivity_gate(user_query).egress_allowed:
         return EgressDecision(False, "SENSITIVITY_DENIED")
-    # ponytail: all segment contents are screened until registry attribution and content hashes can prove trusted origins.
+    # ponytail: all materialized segment contents are screened until registry attribution and content hashes can prove trusted origins.
     if any(not sensitivity_gate(segment.content).egress_allowed for segment in snapshot):
         return EgressDecision(False, "SENSITIVITY_DENIED")
     decision = inspect_egress(snapshot)
