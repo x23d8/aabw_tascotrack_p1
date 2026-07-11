@@ -31,8 +31,46 @@ class ScreeningTest(unittest.TestCase):
         self.assertFalse(verdict.egress_allowed)
         self.assertEqual(verdict.codes, ("PRIVATE_KEY",))
 
+    def test_complete_private_key_block_is_redacted(self):
+        text = "before\n-----BEGIN PRIVATE KEY-----\nabc123\n-----END PRIVATE KEY-----\nafter"
+
+        result = redact(text)
+
+        self.assertEqual(result.codes, ("PRIVATE_KEY",))
+        self.assertEqual(result.sanitized_text, "before\n[REDACTED:PRIVATE_KEY]\nafter")
+
+    def test_quoted_json_credential_is_redacted(self):
+        text = '{"password": "hunter2"}'
+
+        result = redact(text)
+
+        self.assertEqual(result.codes, ("SECRET_ASSIGNMENT",))
+        self.assertEqual(result.sanitized_text, '{"password": "[REDACTED:SECRET_ASSIGNMENT]"}')
+
+    def test_quoted_json_otp_transaction_id_is_redacted(self):
+        text = '{"otpTransactionId": "abc"}'
+
+        result = redact(text)
+
+        self.assertEqual(result.codes, ("OTP",))
+        self.assertEqual(result.sanitized_text, '{"otpTransactionId": "[REDACTED:OTP]"}')
+
+    def test_password_assignment_with_whitespace_is_redacted_to_end_of_line(self):
+        text = "password=correct horse battery staple\nnext=line"
+
+        result = redact(text)
+
+        self.assertEqual(result.codes, ("SECRET_ASSIGNMENT",))
+        self.assertEqual(result.sanitized_text, "password=[REDACTED:SECRET_ASSIGNMENT]\nnext=line")
+
     def test_raw_payroll_is_blocked(self):
         verdict = sensitivity_gate("Lương tháng này là 25,000,000 VND")
+
+        self.assertFalse(verdict.egress_allowed)
+        self.assertEqual(verdict.codes, ("PAYROLL",))
+
+    def test_english_salary_is_blocked(self):
+        verdict = sensitivity_gate("Salary: 2500 USD")
 
         self.assertFalse(verdict.egress_allowed)
         self.assertEqual(verdict.codes, ("PAYROLL",))
