@@ -13,6 +13,7 @@ _PATTERNS = (
     ("OTP", re.compile(r"(([\"'])otpTransactionId\2\s*:\s*([\"']))(?:\\.|(?!\3)[^\\\r\n])*(\3)", re.IGNORECASE)),
     ("OTP", re.compile(r"((?:\"otpTransactionId\"|'otpTransactionId')\s*:\s*)(?:\"(?:\\.|[^\"\\\r\n])*|'(?:\\.|[^'\\\r\n])*)(?=\r?\n|\Z)", re.IGNORECASE)),
     ("OTP", re.compile(r"\b(?:otp(?:TransactionId)?|one[- ]time password)\b(?:\s+(?:value|code|id))?\s*(?:[:=]|is)?\s*[A-Za-z0-9-]+", re.IGNORECASE)),
+    ("PAYROLL", re.compile(r"[\"'](?:grossSalary|netSalary|gross_salary|net_salary|salary|payroll)[\"']\s*:\s*\d[\d.,]*", re.IGNORECASE)),
     ("PAYROLL", re.compile(r"\b(?:salary|payroll|wage|lương|luong|bảng lương|bang luong)\b[^\n\r]*\d[\d.,]*(?:\s*(?:vnd|vnđ|usd|đ|dollars?))?", re.IGNORECASE)),
 )
 

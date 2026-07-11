@@ -174,6 +174,30 @@ class ScreeningTest(unittest.TestCase):
                 self.assertNotIn("25000000", result.sanitized_text)
                 self.assertNotIn(key, result.sanitized_text)
 
+    def test_truncated_gross_salary_json_is_denied_and_redacted(self):
+        text = r'{"grossSalary":25000000'
+
+        verdict = sensitivity_gate(text)
+        result = redact(text)
+
+        self.assertFalse(verdict.egress_allowed)
+        self.assertEqual(verdict.codes, ("PAYROLL",))
+        self.assertEqual(result.codes, ("PAYROLL",))
+        self.assertNotIn("25000000", result.sanitized_text)
+        self.assertEqual(result.sanitized_text, r'{[REDACTED:PAYROLL]')
+
+    def test_truncated_net_salary_json_is_denied_and_redacted(self):
+        text = r'{"net_salary":25000000'
+
+        verdict = sensitivity_gate(text)
+        result = redact(text)
+
+        self.assertFalse(verdict.egress_allowed)
+        self.assertEqual(verdict.codes, ("PAYROLL",))
+        self.assertEqual(result.codes, ("PAYROLL",))
+        self.assertNotIn("25000000", result.sanitized_text)
+        self.assertEqual(result.sanitized_text, r'{[REDACTED:PAYROLL]')
+
     def test_raw_payroll_is_blocked(self):
         verdict = sensitivity_gate("Lương tháng này là 25,000,000 VND")
 
